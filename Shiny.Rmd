@@ -1,0 +1,84 @@
+---
+title: "STAT 385 Homework Assignment 07"
+author: ""
+date: "Due by 12:00 PM 05/02/2020"
+output: html_document
+runtime: shiny
+---
+
+### 1. If you select grading option 1
+
+Create a Shiny App that allows a user to visualize the iris dataset in base R. Your Shiny app should embrace good design principles and it should also feature at least two input designs. Email me if you want to create a Shiny app for a particular dataset that is interesting to you. You are encouraged to be creative and make your Shiny app as slick as you want, you can include more than two input designs if you wish!
+
+```{r}
+library(shiny)
+library(faraway)
+library(ggplot2)
+data("iris")
+ui = fluidPage(
+  tags$h1("Introduction to my Shiny app"),
+  tags$p("This Shiny app plot three plots on iris dataset using three type of inputs:"),
+  tags$p("The first plot uses a slider-input as the number of breaks and a select-input as the base variable and use these to create a histogram."),
+  tags$p("The second plot uses two select-input as the X and Y variable and use these to create scatter plot."),
+  tags$p("The third plot uses a checkbox-input and a select-input as conditions to create the scatter plot of the entire data."),
+  headerPanel('Iris dataset visualization'),
+  
+  sidebarPanel(
+    sliderInput(inputId = "num_breaks", label = "number of breaks:", min = 1, max = 40, value = 30),
+    selectInput('base', 'Base variable of the 1st plot', names(iris[, -5])),
+    selectInput('first', 'X variable of the 2nd plot', names(iris[, -5])),
+    selectInput('second', 'Y variable of the 2nd plot', names(iris[, -5]), selected = "Petal.Length"),
+    checkboxGroupInput("species_group", "Species of the 3rd plot", 
+                       choices = levels(iris$Species), 
+                       selected = levels(iris$Species)),
+    selectInput("sepal_petal", "Sepal and Petal of the 3rd plot", 
+                choices = c("Sepal", "Petal", "Sepal and Petal"), 
+                selected = "Sepal and Petal")
+  ),
+  
+  mainPanel(
+    plotOutput("plot_1"),
+    plotOutput("plot_2"),
+    plotOutput("plot_3")
+  )
+)
+server = function(input, output) {
+    output$plot_1 = renderPlot({
+    sepal_length = iris[, 1]
+    breaks = seq(min(iris[, which(names(iris) == input$base)]), 
+                 max(iris[, which(names(iris) == input$base)]), 
+                 length.out = input$num_breaks + 1)
+    ggplot(iris) + 
+    geom_histogram(mapping = aes(x = iris[, which(names(iris) == input$base)], 
+                                 col = factor(Species)), breaks = breaks) + 
+    labs(x = names(iris)[which(names(iris) == input$base)], title = paste("Histogram of", input$base))
+  })
+    
+    output$plot_2 = renderPlot({
+    ggplot(iris) +  
+      geom_point(mapping = aes(x = iris[, which(names(iris) == input$first)], 
+                               y = iris[, which(names(iris) == input$second)], 
+                               col = factor(Species))) +
+      labs(x = input$first, y = input$second, title = paste("Scatter plot of", input$first, "vs", input$second))
+  })
+    
+    data = data.frame(c(iris$Sepal.Length, iris$Petal.Length), 
+                      c(iris$Sepal.Width, iris$Petal.Width), 
+                      rep(iris$Species, 2), 
+                      as.factor(c(rep("Sepal", 150), rep("Petal", 150))))
+    names(data) = c("Length", "Width", "Species", "SP")
+    
+    output$plot_3 = renderPlot({
+      validate(
+        need(input$species_group != "", "Please choose at least one species!")
+      )
+      ggplot(data[intersect(intersect(which(data$Species %in% input$species_group), 
+                            ifelse(rep(input$sepal_petal == "Sepal", 300), rep(c(1:150), 2), c(1:300))), 
+                            ifelse(rep(input$sepal_petal == "Petal", 300), rep(c(151:300), 2), c(1:300))), ]) +
+        geom_point(mapping = aes(x = Length, y = Width, col = factor(Species))) + 
+        facet_wrap( ~ SP) + 
+        labs(title = "Scatter plot of the entire iris data on given conditions")
+  })
+}
+shinyApp(ui = ui, server = server)
+```
